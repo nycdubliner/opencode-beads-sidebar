@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "opencode-beads-sidebar",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shows the current beads plan and its progress in the opencode sidebar.",
+  "license": "MIT",
+  "exports": {
+    "./tui": {
+      "import": "./src/tui.tsx"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "opencode": ">=1.18.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentui/core": "0.4.1",
+    "@opentui/solid": "0.4.1",
+    "solid-js": "1.9.12"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.18.16",
+    "@types/node": "^22.0.0",
+    "typescript": "~5.9.3"
+  }
+}
