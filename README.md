@@ -20,14 +20,25 @@ This puts the durable plan where you already look.
 Needs [`bd`](https://github.com/gastownhall/beads) on your `PATH` and opencode ≥ 1.18.
 
 ```bash
-opencode plugin opencode-beads-sidebar --global
+git clone https://github.com/nycdubliner/opencode-beads-sidebar
+cd opencode-beads-sidebar && npm install
 ```
 
-That adds it to `~/.config/opencode/tui.json` and installs it on next start. TUI
-plugins live in `tui.json`, not `opencode.json` — opencode keeps the two plugin
-kinds in separate config files.
+Then add the checkout to `~/.config/opencode/tui.json`:
 
-Restart opencode and open a session in a repo with a `.beads` directory.
+```json
+{ "plugin": ["/absolute/path/to/opencode-beads-sidebar"] }
+```
+
+TUI plugins live in `tui.json`, not `opencode.json` — opencode keeps the two
+plugin kinds in separate config files. Restart opencode and open a session in a
+repo with a `.beads` directory.
+
+> Not on npm yet. Once it is, this becomes
+> `opencode plugin opencode-beads-sidebar --global` and the `npm install` step
+> goes away, since opencode installs a published plugin's dependencies itself.
+> Installing straight from GitHub (`opencode plugin github:...`) does *not* work
+> — opencode 1.18 mangles the spec into a directory name and never installs it.
 
 This is a TUI plugin only. It pairs well with
 [`opencode-beads`](https://github.com/joshuadavidthomas/opencode-beads), which
@@ -127,25 +138,14 @@ right away, but doesn't by itself move the panel's attention to another epic.
 
 ## Hacking on it
 
-```bash
-git clone https://github.com/nycdubliner/opencode-beads-sidebar
-cd opencode-beads-sidebar && npm install
-```
-
-Point `tui.json` at the checkout instead of the published package:
-
-```json
-{ "plugin": ["/absolute/path/to/opencode-beads-sidebar"] }
-```
+Install as above, then run `npm run typecheck` before sending a change.
 
 A path-loaded plugin uses its own `node_modules` at runtime, so `npm install`
-isn't optional there, and the installed `@opentui/*` must match the version
-opencode itself runs (check `~/.cache/opencode/packages/*/node_modules`). The
-published package declares those as peer dependencies instead, which lets
-opencode pick versions that match itself — so the install above is the more
-robust of the two.
-
-Run `npm run typecheck` before sending a change.
+isn't optional, and the installed `@opentui/*` must match the version opencode
+itself runs (compare against `~/.cache/opencode/packages/*/node_modules`). The
+package declares those as peer dependencies so that a published install lets
+opencode pick versions matching itself — which is why publishing is the more
+robust route once it exists.
 
 Three things here are load-bearing and easy to undo by accident. Each one fails
 by rendering an empty panel rather than raising an error, so none of them
