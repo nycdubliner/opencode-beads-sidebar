@@ -115,7 +115,7 @@ section renders below Todo by default. To hide opencode's todos entirely:
 
 ```json
 {
-  "plugin": ["opencode-beads-sidebar"],
+  "plugin": ["/absolute/path/to/opencode-beads-sidebar"],
   "plugin_enabled": { "internal:sidebar-todo": false }
 }
 ```
