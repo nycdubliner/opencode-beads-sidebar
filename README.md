@@ -1,8 +1,8 @@
 # opencode-beads-sidebar
 
-Shows the current [beads](https://github.com/gastownhall/beads) plan — and how far
-through it you are — in the opencode sidebar, the way the built-in Todo panel
-shows opencode's own ephemeral todos.
+Shows your current [beads](https://github.com/gastownhall/beads) plan — and how far
+through it you are — in the [opencode](https://opencode.ai) sidebar, the way the
+built-in Todo panel shows opencode's own throwaway todos.
 
 ```
 ▼ Beads bt-avj 75% (3/4)
@@ -12,60 +12,56 @@ shows opencode's own ephemeral todos.
 [○] Update smoke test
 ```
 
-It sits alongside the built-in Todo panel rather than replacing it: todos stay
-useful for within-turn steps, while beads carries the durable plan the agent and
-you both work from.
-
-This is a TUI plugin only. It composes with
-[`opencode-beads`](https://github.com/joshuadavidthomas/opencode-beads), which
-handles the server side (context injection, `/bd-*` commands, task agent) and
-renders nothing.
+Beads is durable and dependency-aware; opencode's todos die with the session.
+This puts the durable plan where you already look.
 
 ## Install
 
-Requires `bd` on `PATH` and opencode ≥ 1.18.
+Needs [`bd`](https://github.com/gastownhall/beads) on your `PATH` and opencode ≥ 1.18.
 
 ```bash
-git clone <this repo> ~/git/beadmanager
-cd ~/git/beadmanager && npm install
+opencode plugin opencode-beads-sidebar --global
 ```
 
-Add the path to `~/.config/opencode/tui.json` (**not** `opencode.json` — TUI
-plugins are configured separately):
+That adds it to `~/.config/opencode/tui.json` and installs it on next start. TUI
+plugins live in `tui.json`, not `opencode.json` — opencode keeps the two plugin
+kinds in separate config files.
 
-```json
-{
-  "plugin": ["/Users/you/git/beadmanager"]
-}
-```
+Restart opencode and open a session in a repo with a `.beads` directory.
+
+This is a TUI plugin only. It pairs well with
+[`opencode-beads`](https://github.com/joshuadavidthomas/opencode-beads), which
+covers the server side — `bd prime` context injection, `/bd-*` commands, a task
+subagent — and renders nothing. Neither needs the other.
 
 ## What it shows
 
-The panel picks a scope in this order:
+The panel picks what to display in this order:
 
-1. an epic pinned for the session with **Beads: focus an epic**
-2. the epic owning the bead `bd` last touched — this is what makes the panel
-   follow the agent as it works
-3. otherwise, workspace-wide in-progress and ready work
+1. an epic you pinned with **Beads: focus an epic**
+2. the epic owning the bead `bd` last touched — this is what makes it follow
+   along as the agent works
+3. otherwise, the workspace's in-progress and ready work
 
-If the repo has no `.beads` directory the section renders nothing at all.
+In a repo with no `.beads` directory it renders nothing at all — no empty box,
+no error.
 
-Glyphs follow `bd statuses`, so the panel reads like the CLI:
+Glyphs match `bd statuses`, so the panel reads like the CLI:
 
 | glyph | meaning |
 |---|---|
 | `✓` | closed |
 | `◐` | in progress |
-| `○` | ready — open with no active blocker |
+| `○` | ready — open, nothing blocking it |
 | `●` | blocked |
 | `❄` | deferred |
 
-Blockedness is derived, not stored: beads leaves a blocked issue's status as
-`open`, so anything open that `bd ready` does not return is treated as blocked.
+Blocked is inferred rather than read: beads leaves a blocked issue's status as
+`open`, so anything open that `bd ready` doesn't return is shown as blocked.
 
 ## Commands
 
-All available from the command palette (`ctrl+p`) and as slash commands.
+In the command palette (`ctrl+p`), and as slash commands.
 
 | command | slash | what it does |
 |---|---|---|
@@ -76,43 +72,97 @@ All available from the command palette (`ctrl+p`) and as slash commands.
 | Beads: reopen | `/bd-reopen` | `bd reopen <id>` |
 | Beads: refresh | `/bd-refresh` | drop the cache and re-read |
 
-Clicking a row opens that bead's detail. Actions go through a picker rather than
-a selection cursor because no sidebar section in opencode takes keyboard focus.
+Clicking a row opens that bead's details.
 
-Bindings are user-overridable from `tui.json` under `keybinds`, gathered from the
-`beads` group.
+Actions go through a picker rather than a cursor in the panel, because no
+sidebar section in opencode takes keyboard focus — the built-in Todo and
+Modified Files panels are display-only too.
 
-## Notes for anyone editing this
+Keybindings are yours to set in `tui.json` under `keybinds`, using the command
+names above (`beads.focus`, `beads.close`, …).
 
-Three things here are load-bearing and non-obvious. All three were found the
-hard way; each produces a silently empty panel rather than an error.
+## What it does to your data
 
-**`store.tsx` must stay `.tsx`, with its `@jsxImportSource` pragma.** opencode
-only routes files through the `@opentui/solid` transform when they look like
-JSX. A signal created in a plain `.ts` module belongs to a *different* Solid
-instance than the panel's memos, so it updates and nothing re-renders.
+Reads run as `bd --readonly` and can't modify anything. The only writes are the
+three commands you invoke explicitly — start, close, reopen — and each is
+reversible with `bd`.
 
-**Background refreshes must run under the panel's reactive owner.** The store
-captures `getOwner()` from inside the component body — not from the slot
-callback, which runs outside the tracking scope — and wraps updates in
-`runWithOwner`. Without it, re-rendering throws `No renderer found`.
+`bd` is invoked directly rather than through a shell, so bead titles and ids are
+passed as arguments and never interpreted as commands. Nothing is sent anywhere:
+no network calls, no telemetry.
 
-**`@opentui/*` versions must match what opencode itself runs** (0.4.1 for
-opencode 1.18.x; compare against `~/.cache/opencode/packages/*/node_modules`).
-A mismatch means the host rejects this plugin's nodes and the slot stays blank.
-Because opencode does not install dependencies for path-loaded plugins, the
-local `node_modules` is what actually gets used at runtime.
+One caveat worth knowing: if the agent is also editing beads while you act on
+one, `bd` is last-write-wins. The panel re-reads after every write so it won't
+show you a state the agent has already moved past.
 
-Set `BEADS_SIDEBAR_DEBUG=/path/to/log` to trace refreshes, scope resolution and
-pinning.
+## Configuration
 
-## Change detection
+Nothing is required. Two things you can change if you want:
 
-The panel polls a signature of the `.beads` directory (newest mtime, depth- and
-count-capped) rather than shelling out to `bd`, which costs ~0.4s per call.
+**Replace the built-in Todo panel instead of sitting under it.** The Beads
+section renders below Todo by default. To hide opencode's todos entirely:
 
-`.beads/last-touched` looks like the obvious signal but is not one: it records
-the bead you last *viewed*, so `bd show` rewrites it while `bd close` does not.
-It is still used to decide which epic to follow, just not to detect change. One
-consequence: closing a bead from the CLI updates progress immediately, but does
-not by itself move the panel's attention to a different epic.
+```json
+{
+  "plugin": ["opencode-beads-sidebar"],
+  "plugin_enabled": { "internal:sidebar-todo": false }
+}
+```
+
+**Trace what it's doing.** Set `BEADS_SIDEBAR_DEBUG=/tmp/beads.log` to log
+refreshes, scope resolution, and pinning.
+
+## How it stays cheap
+
+A `bd` call costs 0.3–0.6s, far too slow to sit on a render. So the panel polls
+a signature of the `.beads` directory — newest mtime, depth- and count-capped —
+and only shells out when something actually changed. An idle repo costs one
+`bd` run at startup and nothing after.
+
+`.beads/last-touched` looks like the obvious change signal but isn't one: it
+records the bead you last *viewed*, so `bd show` rewrites it while `bd close`
+doesn't. It's still used to decide which epic to follow, just not to detect
+change. The visible consequence: closing a bead from the CLI updates progress
+right away, but doesn't by itself move the panel's attention to another epic.
+
+## Hacking on it
+
+```bash
+git clone https://github.com/nycdubliner/opencode-beads-sidebar
+cd opencode-beads-sidebar && npm install
+```
+
+Point `tui.json` at the checkout instead of the published package:
+
+```json
+{ "plugin": ["/absolute/path/to/opencode-beads-sidebar"] }
+```
+
+A path-loaded plugin uses its own `node_modules` at runtime, so `npm install`
+isn't optional there, and the installed `@opentui/*` must match the version
+opencode itself runs (check `~/.cache/opencode/packages/*/node_modules`). The
+published package declares those as peer dependencies instead, which lets
+opencode pick versions that match itself — so the install above is the more
+robust of the two.
+
+Run `npm run typecheck` before sending a change.
+
+Three things here are load-bearing and easy to undo by accident. Each one fails
+by rendering an empty panel rather than raising an error, so none of them
+announce themselves:
+
+- **`store.tsx` must keep its `.tsx` extension and `@jsxImportSource` pragma.**
+  opencode only runs JSX-looking files through the `@opentui/solid` transform.
+  As a plain `.ts` module its signal lands in a *different* Solid instance than
+  the panel's memos — it updates and nothing re-renders.
+- **Background refreshes must run under the panel's reactive owner.** The store
+  captures `getOwner()` from inside the component body — not from the slot
+  callback, which runs outside the tracking scope — and commits through
+  `runWithOwner`. Without it, re-rendering throws `No renderer found`.
+- **Don't wrap the render path in a `try`/`catch` that swallows.** opencode's
+  slot registry already replaces a throwing plugin with an empty placeholder,
+  so a second layer of swallowing makes failures invisible.
+
+## License
+
+MIT

@@ -3,8 +3,22 @@
   "name": "opencode-beads-sidebar",
   "version": "0.1.0",
   "type": "module",
-  "description": "Shows the current beads plan and its progress in the opencode sidebar.",
+  "description": "Shows the current beads plan and its progress in the opencode sidebar",
   "license": "MIT",
+  "author": "Tiarnán de Burca",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nycdubliner/opencode-beads-sidebar.git"
+  },
+  "homepage": "https://github.com/nycdubliner/opencode-beads-sidebar#readme",
+  "bugs": "https://github.com/nycdubliner/opencode-beads-sidebar/issues",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "beads",
+    "issue-tracker",
+    "tui"
+  ],
   "exports": {
     "./tui": {
       "import": "./src/tui.tsx"
@@ -12,7 +26,8 @@
   },
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "opencode": ">=1.18.0"
@@ -20,14 +35,18 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@opentui/core": "0.4.1",
-    "@opentui/solid": "0.4.1",
-    "solid-js": "1.9.12"
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*",
+    "@opentui/core": "*",
+    "@opentui/solid": "*",
+    "solid-js": "*"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "1.18.16",
+    "@opentui/core": "0.4.1",
+    "@opentui/solid": "0.4.1",
     "@types/node": "^22.0.0",
+    "solid-js": "1.9.12",
     "typescript": "~5.9.3"
   }
 }
