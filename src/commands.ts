@@ -1,7 +1,7 @@
 import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 import type { BdClient } from "./bd"
 import type { PanelItem } from "./scope"
-import type { Store } from "./store"
+import type { Store } from "./tui"
 
 const COMMANDS = [
   "beads.focus",

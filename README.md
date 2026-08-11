@@ -151,6 +151,7 @@ Then point `~/.config/opencode/tui.json` at the checkout:
 Before sending a change:
 
 ```bash
+npm run build       # compile src/ → dist/ (the plugin loads dist, even from a checkout)
 npm run lint        # biome
 npm run typecheck   # tsc --noEmit
 npm test            # node --test
@@ -175,10 +176,16 @@ Three things here are load-bearing and easy to undo by accident. Each one fails
 by rendering an empty panel rather than raising an error, so none of them
 announce themselves:
 
-- **`store.tsx` must keep its `.tsx` extension and `@jsxImportSource` pragma.**
-  opencode only runs JSX-looking files through the `@opentui/solid` transform.
-  As a plain `.ts` module its signal lands in a *different* Solid instance than
-  the panel's memos — it updates and nothing re-renders.
+- **What ships is `dist/tui.js`, compiled by `npm run build` — never raw
+  `.tsx`.** opencode's runtime Solid transform explicitly skips files under
+  `node_modules`, so raw `.tsx` in a published install falls back to Bun's
+  plain jsx-runtime: every reactive expression is evaluated exactly once, the
+  panel renders its mount-time values, and no update ever re-renders — no
+  error, just a frozen panel. The build (`scripts/build.mjs`) bakes in the
+  Solid *universal* transform (`moduleName: "@opentui/solid"`) and leaves
+  `solid-js`/`@opentui/*` imports bare so the host maps them onto its own
+  runtime instances at load. Rebuild after editing `src/` — the dev path
+  install loads `dist/` too.
 - **Background refreshes must run under the panel's reactive owner.** The store
   captures `getOwner()` from inside the component body — not from the slot
   callback, which runs outside the tracking scope — and commits through

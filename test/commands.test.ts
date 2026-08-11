@@ -4,7 +4,7 @@ import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 import type { BdClient, Bead } from "../src/bd.ts"
 import { registerCommands, showBead } from "../src/commands.ts"
 import type { PanelItem } from "../src/scope.ts"
-import type { Store } from "../src/store.tsx"
+import type { Store } from "../src/tui.tsx"
 
 /** Let a `void apply(...)` chain of already-resolved promises run to completion. */
 function settle(): Promise<void> {

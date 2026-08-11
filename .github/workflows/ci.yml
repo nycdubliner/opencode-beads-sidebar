@@ -22,6 +22,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run build
       # No bd on this runner: the integration suite skips itself.
       - run: npm test
 
