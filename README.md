@@ -7,6 +7,8 @@ Shows your current [beads](https://github.com/gastownhall/beads) plan — and ho
 through it you are — in the [opencode](https://opencode.ai) sidebar, the way the
 built-in Todo panel shows opencode's own throwaway todos.
 
+![The Beads panel following a plan from 0% to 100% as its tasks close](https://raw.githubusercontent.com/nycdubliner/opencode-beads-sidebar/main/docs/beads-burndown.gif)
+
 ```
 ▼ Beads bt-avj 75% (3/4)
 [✓] Extract dice geometry
