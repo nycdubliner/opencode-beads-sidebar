@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
-import { createMemo, createSignal, For, getOwner, Show, type Accessor, type Owner } from "solid-js"
+import { type Accessor, createMemo, createSignal, For, getOwner, type Owner, Show } from "solid-js"
 import type { Bead } from "./bd"
 import type { BeadState, PanelData, PanelItem } from "./scope"
 
@@ -51,11 +51,7 @@ export function BeadsPanel(props: {
     <Show when={props.data()}>
       {(data: Accessor<PanelData>) => (
         <box>
-          <box
-            flexDirection="row"
-            gap={1}
-            onMouseDown={() => collapsible() && setExpanded((it) => !it)}
-          >
+          <box flexDirection="row" gap={1} onMouseDown={() => collapsible() && setExpanded((it) => !it)}>
             <Show when={collapsible()}>
               <text fg={theme().text}>{expanded() ? "▼" : "▶"}</text>
             </Show>
@@ -72,9 +68,7 @@ export function BeadsPanel(props: {
             <text fg={theme().textMuted}>{heading()}</text>
           </box>
 
-          <For each={visible()}>
-            {(item) => <Row api={props.api} item={item} onSelect={props.onSelect} />}
-          </For>
+          <For each={visible()}>{(item) => <Row api={props.api} item={item} onSelect={props.onSelect} />}</For>
         </box>
       )}
     </Show>

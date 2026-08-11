@@ -10,8 +10,9 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src"]
+  "include": ["src", "test"]
 }

@@ -6,10 +6,10 @@
 // resolve `solid-js` to a *different* instance. A signal created in a plain
 // `.ts` module is invisible to memos in the panel: it updates, and nothing
 // re-renders, silently. Keep the extension and the pragma.
-import { createSignal, runWithOwner, type Owner } from "solid-js"
+import { createSignal, type Owner, runWithOwner } from "solid-js"
 import type { BdClient } from "./bd"
 import { debug } from "./debug"
-import { focusKey, resolveScope, type PanelData } from "./scope"
+import { focusKey, type PanelData, resolveScope } from "./scope"
 
 /** How often we stat `.beads/last-touched` looking for changes. */
 const POLL_MS = 1_500

@@ -1,4 +1,4 @@
-import type { Bead, BdClient } from "./bd"
+import type { BdClient, Bead } from "./bd"
 
 /** Beads' own status vocabulary, from `bd statuses`. */
 export type BeadState = "closed" | "in_progress" | "blocked" | "ready" | "open" | "deferred" | "pinned" | "hooked"

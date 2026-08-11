@@ -149,8 +149,10 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
             closed.length > 0
               ? closed
               : ((await bd.list(["--status", "closed"])) ?? []).map((bead) => ({ bead, state: "closed" as const }))
-          pick("Reopen bead", items, (item) =>
-            void apply(item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`),
+          pick(
+            "Reopen bead",
+            items,
+            (item) => void apply(item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`),
           )
         },
       },
