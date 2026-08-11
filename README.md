@@ -99,8 +99,10 @@ three commands you invoke explicitly — start, close, reopen — and each is
 reversible with `bd`.
 
 `bd` is invoked directly rather than through a shell, so bead titles and ids are
-passed as arguments and never interpreted as commands. Nothing is sent anywhere:
-no network calls, no telemetry.
+passed as arguments and never interpreted as shell commands; ids sourced from
+`.beads/last-touched` or bd's own JSON are additionally validated before use, so
+a crafted id can't be smuggled in as a flag. Nothing is sent anywhere: no
+network calls, no telemetry.
 
 One caveat worth knowing: if the agent is also editing beads while you act on
 one, `bd` is last-write-wins. The panel re-reads after every write so it won't

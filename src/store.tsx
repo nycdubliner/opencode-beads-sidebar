@@ -33,6 +33,8 @@ export function createStore(bd: BdClient, kv: Kv) {
 
   let lastSignature: string | undefined
   let inFlight = false
+  /** A refresh requested while one was in flight; any number coalesce to one. */
+  let pending: { force: boolean } | undefined
 
   /**
    * The reactive owner the sidebar slot renders under.
@@ -64,6 +66,10 @@ export function createStore(bd: BdClient, kv: Kv) {
     const id = sessionID()
     if (!id) return
     debug(`pin epic=${epicID ?? "-"} session=${id}`)
+    // TuiKV (see @opencode-ai/plugin's tui.d.ts) exposes only get/set, no
+    // delete — unfocus can't remove the key, so a dead session's entry
+    // lingers in the host's persistent kv for good. Writing "" is the closest
+    // available approximation of "unset".
     kv.set(focusKey(id), epicID ?? "")
     void refresh(true)
   }
@@ -71,10 +77,17 @@ export function createStore(bd: BdClient, kv: Kv) {
   async function refresh(force = false) {
     // Overlapping refreshes would race to set the signal out of order, and a bd
     // call outlives a poll tick often enough for that to happen in practice.
-    if (inFlight) return
+    // A request that arrives mid-flight can't just be dropped, though: the
+    // in-flight refresh holds pre-mutation data, and its final snapshot would
+    // mask the change from the poll loop. Record it and re-run once instead.
+    if (inFlight) {
+      pending = { force: pending?.force || force }
+      return
+    }
     inFlight = true
     try {
       if (force) bd.invalidate()
+      bd.beginRefresh()
       const next = await resolveScope(bd, pinned())
       debug(`refresh items=${next?.items.length ?? "none"} epic=${next?.epic?.id ?? "-"}`)
       commit(next)
@@ -85,8 +98,15 @@ export function createStore(bd: BdClient, kv: Kv) {
       // Snapshot *after* querying, not before: some bd reads rewrite
       // `.beads/last-touched` themselves, and sampling first would make our own
       // queries look like an external change and refresh in a loop.
-      lastSignature = bd.signature()
+      lastSignature = bd.snapshot()
       inFlight = false
+      // A rerun happens only when a request actually arrived mid-flight, so
+      // this settles as soon as requests stop — no self-sustaining loop.
+      if (pending) {
+        const { force: pendingForce } = pending
+        pending = undefined
+        void refresh(pendingForce)
+      }
     }
   }
 

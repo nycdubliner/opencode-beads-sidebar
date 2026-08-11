@@ -22,8 +22,8 @@ const COMMANDS = [
  */
 export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store): () => void {
   /** Run a bd write, then re-read so the panel can't linger on stale state. */
-  async function apply(args: string[], describe: string) {
-    const result = await bd.mutate(args)
+  async function apply(id: string, args: string[], describe: string) {
+    const result = await bd.mutate(id, args)
     if (!result.ok) {
       api.ui.toast({ variant: "error", title: "beads", message: result.message })
     } else {
@@ -112,7 +112,8 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
           pickFrom(
             "Start work",
             (item) => item.state !== "closed" && item.state !== "in_progress",
-            (item) => void apply(["update", item.bead.id, "--status", "in_progress"], `started ${item.bead.id}`),
+            (item) =>
+              void apply(item.bead.id, ["update", item.bead.id, "--status", "in_progress"], `started ${item.bead.id}`),
           )
         },
       },
@@ -127,7 +128,7 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
           pickFrom(
             "Close bead",
             (item) => item.state !== "closed",
-            (item) => void apply(["close", item.bead.id], `closed ${item.bead.id}`),
+            (item) => void apply(item.bead.id, ["close", item.bead.id], `closed ${item.bead.id}`),
           )
         },
       },
@@ -138,11 +139,18 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
         category: "Beads",
         namespace: "palette",
         slashName: "bd-reopen",
-        run() {
-          pickFrom(
-            "Reopen bead",
-            (item) => item.state === "closed",
-            (item) => void apply(["reopen", item.bead.id], `reopened ${item.bead.id}`),
+        async run() {
+          // Workspace fallback's items come from an unfiltered `bd list`, which
+          // only returns open issues — so there is usually nothing closed to
+          // pick from without asking bd directly. Epic scope already includes
+          // closed children, so this only fires when it has to.
+          const closed = (store.data()?.items ?? []).filter((item) => item.state === "closed")
+          const items =
+            closed.length > 0
+              ? closed
+              : ((await bd.list(["--status", "closed"])) ?? []).map((bead) => ({ bead, state: "closed" as const }))
+          pick("Reopen bead", items, (item) =>
+            void apply(item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`),
           )
         },
       },
@@ -169,7 +177,7 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
  * mutations all live behind the palette commands above.
  */
 export async function showBead(api: TuiPluginApi, bd: BdClient, item: PanelItem) {
-  const bead = (await bd.show(item.bead.id))?.[0] ?? item.bead
+  const bead = (await bd.get(item.bead.id))?.[0] ?? item.bead
   const lines = [
     `${bead.id}  ${bead.status ?? "open"}${bead.issue_type ? ` · ${bead.issue_type}` : ""}`,
     "",
