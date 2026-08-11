@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "beadmanager",
+  "project_id": "72e85b3e-060f-4a13-8807-7b49a46ec009"
+}
