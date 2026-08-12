@@ -20,6 +20,11 @@ built-in Todo panel shows opencode's own throwaway todos.
 Beads is durable and dependency-aware; opencode's todos die with the session.
 This puts the durable plan where you already look.
 
+This is a TUI plugin only. It pairs well with
+[`opencode-beads`](https://github.com/joshuadavidthomas/opencode-beads), which
+covers the server side — `bd prime` context injection, `/bd-*` commands, a task
+subagent — and renders nothing. Neither needs the other.
+
 ## Install
 
 Needs [`bd`](https://github.com/gastownhall/beads) on your `PATH` and opencode ≥ 1.18.
@@ -38,11 +43,6 @@ To run from a checkout instead (for hacking), see
 
 > Installing straight from GitHub (`opencode plugin github:...`) does *not* work
 > — opencode 1.18 mangles the spec into a directory name and never installs it.
-
-This is a TUI plugin only. It pairs well with
-[`opencode-beads`](https://github.com/joshuadavidthomas/opencode-beads), which
-covers the server side — `bd prime` context injection, `/bd-*` commands, a task
-subagent — and renders nothing. Neither needs the other.
 
 ## What it shows
 
