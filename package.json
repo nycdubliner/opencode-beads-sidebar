@@ -50,8 +50,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",
     "@opencode-ai/plugin": "1.18.16",
-    "@opentui/core": "0.4.1",
-    "@opentui/solid": "0.4.1",
+    "@opentui/core": "0.5.1",
+    "@opentui/solid": "0.5.1",
     "@types/node": "^22.0.0",
     "esbuild": "^0.28.2",
     "esbuild-plugin-solid": "^0.6.0",

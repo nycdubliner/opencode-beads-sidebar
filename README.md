@@ -167,12 +167,11 @@ one; CI runs it on a macOS runner with `brew install beads`.
 
 A path-loaded plugin uses its own `node_modules` at runtime, so `npm install`
 isn't optional, and the installed `@opentui/*` must match the version opencode
-itself runs (compare against `~/.cache/opencode/packages/*/node_modules`). The
-package declares those as peer dependencies so that a published install lets
-opencode pick versions matching itself — which is why the npm install route is
-the robust one. (`.npmrc` sets `legacy-peer-deps`: the pinned dev versions
-deliberately track the opencode runtime rather than the plugin API's declared
-peer range.)
+itself runs. The dev pins track `@opencode-ai/plugin`'s own peer range, which
+is what keeps a plain `npm install` conflict-free; the package declares
+`@opentui/*` as peer dependencies so a published install lets opencode pick
+versions matching itself — which is why the npm install route is the robust
+one.
 
 Three things here are load-bearing and easy to undo by accident. Each one fails
 by rendering an empty panel rather than raising an error, so none of them

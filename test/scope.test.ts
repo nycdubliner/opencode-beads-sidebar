@@ -54,6 +54,15 @@ describe("stateOf", () => {
     assert.equal(stateOf({ id: "r-1" }, ready), "ready")
     assert.equal(stateOf({ id: "b-1" }, ready), "blocked")
   })
+
+  it("treats an unknown ready set (failed query) as open rather than blocked", () => {
+    assert.equal(stateOf({ id: "r-1", status: "open" }, undefined), "open")
+    assert.equal(stateOf({ id: "b-1", status: "open" }, undefined), "open")
+  })
+
+  it("still marks open beads blocked when ready is genuinely empty", () => {
+    assert.equal(stateOf({ id: "b-1", status: "open" }, new Set()), "blocked")
+  })
 })
 
 describe("resolveScope", () => {
@@ -245,5 +254,46 @@ describe("resolveScope", () => {
     assert.equal(data.fallback, true)
     assert.equal(data.done, 0)
     assert.equal(data.total, 4)
+  })
+
+  it("degrades open beads to 'open' rather than 'blocked' when the ready query fails", async () => {
+    const bd = createFakeBd({
+      list: () => Promise.resolve([{ id: "w-1", status: "open" }]),
+      ready: () => Promise.resolve(undefined),
+    })
+
+    const data = await resolveScope(bd, undefined)
+    assert.ok(data)
+    assert.equal(data.items[0]?.state, "open")
+  })
+
+  it("still marks open beads blocked when ready genuinely returns nothing", async () => {
+    const bd = createFakeBd({
+      list: () => Promise.resolve([{ id: "w-1", status: "open" }]),
+      ready: () => Promise.resolve([]),
+    })
+
+    const data = await resolveScope(bd, undefined)
+    assert.ok(data)
+    assert.equal(data.items[0]?.state, "blocked")
+  })
+
+  it("excludes molecules (and epics) from the workspace fallback", async () => {
+    const bd = createFakeBd({
+      list: () =>
+        Promise.resolve([
+          { id: "w-1", status: "open" },
+          { id: "mol-1", issue_type: "molecule", title: "Swarm: something", status: "open" },
+          { id: "epic-1", issue_type: "epic", status: "open" },
+        ]),
+      ready: () => Promise.resolve([{ id: "w-1" }]),
+    })
+
+    const data = await resolveScope(bd, undefined)
+    assert.ok(data)
+    assert.deepEqual(
+      data.items.map((it) => it.bead.id),
+      ["w-1"],
+    )
   })
 })
