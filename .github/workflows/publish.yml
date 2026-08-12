@@ -19,6 +19,19 @@ jobs:
           node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
+      - name: Check the npm token is actually set
+        # An empty secret reaches npm as no credential at all and fails with
+        # ENEEDAUTH only after a full build. `gh secret set` with no --body
+        # stores an empty value when stdin isn't a TTY, which is easy to do
+        # by accident, so check before spending the build.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN is empty or unset. Set it with:" >&2
+            echo "  gh secret set NPM_TOKEN --repo ${{ github.repository }} --body \"\$YOUR_TOKEN\"" >&2
+            exit 1
+          fi
       - run: npm ci
       - name: Check tag matches package.json version
         run: |
