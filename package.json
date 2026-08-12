@@ -52,7 +52,7 @@
     "@opencode-ai/plugin": "1.18.16",
     "@opentui/core": "0.5.1",
     "@opentui/solid": "0.5.1",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.2.0",
     "esbuild": "^0.28.2",
     "esbuild-plugin-solid": "^0.6.0",
     "solid-js": "1.9.12",
