@@ -21,10 +21,11 @@
   ],
   "exports": {
     "./tui": {
-      "import": "./src/tui.tsx"
+      "import": "./dist/tui.js"
     }
   },
   "files": [
+    "dist",
     "src",
     "README.md",
     "LICENSE"
@@ -33,7 +34,12 @@
     "opencode": ">=1.18.0"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\"",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": "*",
@@ -42,10 +48,13 @@
     "solid-js": "*"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
     "@opencode-ai/plugin": "1.18.16",
-    "@opentui/core": "0.4.1",
-    "@opentui/solid": "0.4.1",
+    "@opentui/core": "0.5.1",
+    "@opentui/solid": "0.5.1",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
+    "esbuild-plugin-solid": "^0.6.0",
     "solid-js": "1.9.12",
     "typescript": "~5.9.3"
   }

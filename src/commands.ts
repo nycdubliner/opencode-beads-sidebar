@@ -1,7 +1,7 @@
 import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 import type { BdClient } from "./bd"
 import type { PanelItem } from "./scope"
-import type { Store } from "./store"
+import type { Store } from "./tui"
 
 const COMMANDS = [
   "beads.focus",
@@ -149,8 +149,10 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
             closed.length > 0
               ? closed
               : ((await bd.list(["--status", "closed"])) ?? []).map((bead) => ({ bead, state: "closed" as const }))
-          pick("Reopen bead", items, (item) =>
-            void apply(item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`),
+          pick(
+            "Reopen bead",
+            items,
+            (item) => void apply(item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`),
           )
         },
       },

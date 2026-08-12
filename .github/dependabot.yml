@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # @opentui/* and @opencode-ai/plugin are pinned to match the opencode
+    # runtime (see README "Hacking on it") — don't let a bot drift them.
+    ignore:
+      - dependency-name: "@opentui/*"
+      - dependency-name: "@opencode-ai/plugin"

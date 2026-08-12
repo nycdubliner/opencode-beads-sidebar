@@ -1,4 +1,4 @@
-import type { Bead, BdClient } from "./bd"
+import type { BdClient, Bead } from "./bd"
 
 /** Beads' own status vocabulary, from `bd statuses`. */
 export type BeadState = "closed" | "in_progress" | "blocked" | "ready" | "open" | "deferred" | "pinned" | "hooked"
@@ -22,6 +22,9 @@ export function focusKey(sessionID: string): string {
   return `beads.focus.${sessionID}`
 }
 
+/** Container types: scope-defining, never actionable work in their own right. */
+const CONTAINER_TYPES = new Set(["epic", "molecule"])
+
 /**
  * Work out which beads make up "the current plan", in priority order:
  *
@@ -37,7 +40,10 @@ export function focusKey(sessionID: string): string {
 export async function resolveScope(bd: BdClient, pinned: string | undefined): Promise<PanelData | undefined> {
   if (!bd.enabled()) return undefined
 
-  const ready = new Set(((await bd.ready()) ?? []).map((it) => it.id))
+  // undefined here means "the ready query failed", not "nothing is ready" —
+  // see stateOf, which is what actually cares about the distinction.
+  const readyResult = await bd.ready()
+  const ready = readyResult ? new Set(readyResult.map((it) => it.id)) : undefined
 
   if (pinned) {
     const scoped = await epicScope(bd, pinned, ready)
@@ -61,7 +67,7 @@ export async function resolveScope(bd: BdClient, pinned: string | undefined): Pr
   return workspaceScope(bd, ready)
 }
 
-async function epicScope(bd: BdClient, epicID: string, ready: Set<string>): Promise<PanelData | undefined> {
+async function epicScope(bd: BdClient, epicID: string, ready: Set<string> | undefined): Promise<PanelData | undefined> {
   const epic = (await bd.get(epicID))?.[0]
   if (!epic) return undefined
 
@@ -82,10 +88,10 @@ async function epicScope(bd: BdClient, epicID: string, ready: Set<string>): Prom
   }
 }
 
-async function workspaceScope(bd: BdClient, ready: Set<string>): Promise<PanelData | undefined> {
+async function workspaceScope(bd: BdClient, ready: Set<string> | undefined): Promise<PanelData | undefined> {
   const open = (await bd.list()) ?? []
   const items = open
-    .filter((it) => it.issue_type !== "epic")
+    .filter((it) => !CONTAINER_TYPES.has(it.issue_type ?? ""))
     .map((bead) => ({ bead, state: stateOf(bead, ready) }))
     .sort(byUrgency)
 
@@ -105,8 +111,14 @@ async function workspaceScope(bd: BdClient, ready: Set<string>): Promise<PanelDa
  * Beads stores `open` for work that is blocked by a dependency — blockedness is
  * derived from the dependency graph, not written to the row. An open bead that
  * `bd ready` did not return is therefore blocked by something.
+ *
+ * `ready` is undefined when the `bd ready` query itself failed (timeout, lock
+ * contention, bd error) rather than genuinely finding nothing claimable — that
+ * distinction matters because ready.has() would otherwise be false either way,
+ * turning a transient bd hiccup into every open bead reading as blocked. When
+ * blockedness is unknown, default to "open" rather than guess "blocked".
  */
-export function stateOf(bead: Bead, ready: Set<string>): BeadState {
+export function stateOf(bead: Bead, ready: Set<string> | undefined): BeadState {
   const status = typeof bead.status === "string" ? bead.status : "open"
 
   switch (status) {
@@ -123,6 +135,7 @@ export function stateOf(bead: Bead, ready: Set<string>): BeadState {
     case "hooked":
       return "hooked"
     default:
+      if (!ready) return "open"
       return ready.has(bead.id) ? "ready" : "blocked"
   }
 }
@@ -137,10 +150,21 @@ function byID(a: Bead, b: Bead): number {
   return a.id.localeCompare(b.id, undefined, { numeric: true })
 }
 
-/** Workspace fallback has no plan order, so surface the most actionable first. */
+/**
+ * Workspace fallback has no plan order, so surface the most actionable first.
+ * "open" ranks with "ready": it means the same thing to the user (nothing
+ * marks it as stuck), just with blockedness unknown rather than confirmed
+ * clear — it should not fall behind "blocked" in the ordering.
+ */
 function byUrgency(a: PanelItem, b: PanelItem): number {
   const rank = (item: PanelItem) =>
-    item.state === "in_progress" ? 0 : item.state === "ready" ? 1 : item.state === "blocked" ? 2 : 3
+    item.state === "in_progress"
+      ? 0
+      : item.state === "ready" || item.state === "open"
+        ? 1
+        : item.state === "blocked"
+          ? 2
+          : 3
   const byRank = rank(a) - rank(b)
   if (byRank !== 0) return byRank
   return byID(a.bead, b.bead)

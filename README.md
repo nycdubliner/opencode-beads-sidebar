@@ -1,8 +1,13 @@
 # opencode-beads-sidebar
 
+[![CI](https://github.com/nycdubliner/opencode-beads-sidebar/actions/workflows/ci.yml/badge.svg)](https://github.com/nycdubliner/opencode-beads-sidebar/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/opencode-beads-sidebar)](https://www.npmjs.com/package/opencode-beads-sidebar)
+
 Shows your current [beads](https://github.com/gastownhall/beads) plan — and how far
 through it you are — in the [opencode](https://opencode.ai) sidebar, the way the
 built-in Todo panel shows opencode's own throwaway todos.
+
+![The Beads panel following a plan from 0% to 100% as its tasks close](https://raw.githubusercontent.com/nycdubliner/opencode-beads-sidebar/main/docs/beads-burndown.gif)
 
 ```
 ▼ Beads bt-avj 75% (3/4)
@@ -20,23 +25,17 @@ This puts the durable plan where you already look.
 Needs [`bd`](https://github.com/gastownhall/beads) on your `PATH` and opencode ≥ 1.18.
 
 ```bash
-git clone https://github.com/nycdubliner/opencode-beads-sidebar
-cd opencode-beads-sidebar && npm install
+opencode plugin opencode-beads-sidebar --global
 ```
 
-Then add the checkout to `~/.config/opencode/tui.json`:
+opencode installs the published package and its dependencies itself. TUI
+plugins are configured in `tui.json`, not `opencode.json` — if the plugin
+doesn't appear after a restart, check that the entry landed there. Then open a
+session in a repo with a `.beads` directory.
 
-```json
-{ "plugin": ["/absolute/path/to/opencode-beads-sidebar"] }
-```
+To run from a checkout instead (for hacking), see
+[Hacking on it](#hacking-on-it).
 
-TUI plugins live in `tui.json`, not `opencode.json` — opencode keeps the two
-plugin kinds in separate config files. Restart opencode and open a session in a
-repo with a `.beads` directory.
-
-> Not on npm yet. Once it is, this becomes
-> `opencode plugin opencode-beads-sidebar --global` and the `npm install` step
-> goes away, since opencode installs a published plugin's dependencies itself.
 > Installing straight from GitHub (`opencode plugin github:...`) does *not* work
 > — opencode 1.18 mangles the spec into a directory name and never installs it.
 
@@ -140,23 +139,54 @@ right away, but doesn't by itself move the panel's attention to another epic.
 
 ## Hacking on it
 
-Install as above, then run `npm run typecheck` before sending a change.
+```bash
+git clone https://github.com/nycdubliner/opencode-beads-sidebar
+cd opencode-beads-sidebar && npm install
+```
+
+Then point `~/.config/opencode/tui.json` at the checkout:
+
+```json
+{ "plugin": ["/absolute/path/to/opencode-beads-sidebar"] }
+```
+
+Before sending a change:
+
+```bash
+npm run build       # compile src/ → dist/ (the plugin loads dist, even from a checkout)
+npm run lint        # biome
+npm run typecheck   # tsc --noEmit
+npm test            # node --test
+```
+
+The unit tests cover the non-JSX modules (`bd.ts`, `scope.ts`, `commands.ts`)
+— everything that can run under plain Node. The `.tsx` files need opencode's
+live renderer and are exercised only by the host. `test/integration.test.ts`
+runs against a real `bd` from your `PATH` and skips itself when there isn't
+one; CI runs it on a macOS runner with `brew install beads`.
 
 A path-loaded plugin uses its own `node_modules` at runtime, so `npm install`
 isn't optional, and the installed `@opentui/*` must match the version opencode
-itself runs (compare against `~/.cache/opencode/packages/*/node_modules`). The
-package declares those as peer dependencies so that a published install lets
-opencode pick versions matching itself — which is why publishing is the more
-robust route once it exists.
+itself runs. The dev pins track `@opencode-ai/plugin`'s own peer range, which
+is what keeps a plain `npm install` conflict-free; the package declares
+`@opentui/*` as peer dependencies so a published install lets opencode pick
+versions matching itself — which is why the npm install route is the robust
+one.
 
 Three things here are load-bearing and easy to undo by accident. Each one fails
 by rendering an empty panel rather than raising an error, so none of them
 announce themselves:
 
-- **`store.tsx` must keep its `.tsx` extension and `@jsxImportSource` pragma.**
-  opencode only runs JSX-looking files through the `@opentui/solid` transform.
-  As a plain `.ts` module its signal lands in a *different* Solid instance than
-  the panel's memos — it updates and nothing re-renders.
+- **What ships is `dist/tui.js`, compiled by `npm run build` — never raw
+  `.tsx`.** opencode's runtime Solid transform explicitly skips files under
+  `node_modules`, so raw `.tsx` in a published install falls back to Bun's
+  plain jsx-runtime: every reactive expression is evaluated exactly once, the
+  panel renders its mount-time values, and no update ever re-renders — no
+  error, just a frozen panel. The build (`scripts/build.mjs`) bakes in the
+  Solid *universal* transform (`moduleName: "@opentui/solid"`) and leaves
+  `solid-js`/`@opentui/*` imports bare so the host maps them onto its own
+  runtime instances at load. Rebuild after editing `src/` — the dev path
+  install loads `dist/` too.
 - **Background refreshes must run under the panel's reactive owner.** The store
   captures `getOwner()` from inside the component body — not from the slot
   callback, which runs outside the tracking scope — and commits through
