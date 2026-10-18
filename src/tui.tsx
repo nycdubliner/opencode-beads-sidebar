@@ -136,7 +136,7 @@ export default Plugin.define({
     const sessions = createSessionController(api)
     // Register without a detached owner so V2 can supply its Keymap provider.
     // The host owns and disposes this layer; our private root owns only effects.
-    registerCommands(api, sessions.target)
+    registerCommands(api, sessions.target, sessions.retry)
     return createRoot((dispose) => {
       createEffect(() => {
         const route = api.ui.router.current()

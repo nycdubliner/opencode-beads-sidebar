@@ -14,6 +14,7 @@ export function createSessionController(api: Plugin.Context, client = createBdCl
   let generation = 0
   let stop: (() => void) | undefined
   let disposed = false
+  let requested: { sessionID: string; location: NonNullable<Plugin.Context["location"]> } | undefined
 
   function clear() {
     generation += 1
@@ -24,15 +25,18 @@ export function createSessionController(api: Plugin.Context, client = createBdCl
 
   async function activate(sessionID: string | undefined, location?: Plugin.Context["location"]) {
     clear()
-    if (disposed || !sessionID || !location) return
+    requested = !disposed && sessionID && location ? { sessionID, location } : undefined
+    if (!requested) return
+    // The guard above validates the request; retain its immutable snapshot.
+    const request = requested
     const current = generation
     try {
       // Location.directory may be a subdirectory. The public client returns
       // the actual worktree root, unlike project.canonical (the main checkout).
-      const info = await api.client.location.get({ location })
+      const info = await api.client.location.get({ location: request.location })
       if (disposed || generation !== current) return
       const bd = client(info.project.directory)
-      const key = focusKey(sessionID)
+      const key = focusKey(request.sessionID)
       const store = createStore(bd, {
         get: () => focus[key],
         set: async (value) => {
@@ -48,17 +52,22 @@ export function createSessionController(api: Plugin.Context, client = createBdCl
         },
       })
       stop = store.start()
-      setTarget({ sessionID, bd, store })
+      setTarget({ sessionID: request.sessionID, bd, store })
     } catch (error) {
       // Never guess a different worktree after a failed lookup.
       debug(`worktree resolution failed: ${String(error)}`)
     }
   }
 
+  async function retry() {
+    if (requested && !disposed) await activate(requested.sessionID, requested.location)
+  }
+
   function dispose() {
     disposed = true
+    requested = undefined
     clear()
   }
 
-  return { target, activate, dispose }
+  return { target, activate, retry, dispose }
 }

@@ -300,3 +300,33 @@ describe("session controller", () => {
     assert.deepEqual(fake.toasts, [{ variant: "error", title: "beads", message: "Could not save the focus pin" }])
   })
 })
+
+it("retries a transient location failure without requiring navigation", async (t) => {
+  let attempts = 0
+  const fake = fakeApi(async (location) => {
+    if (++attempts === 1) throw new Error("temporarily unavailable")
+    return info(location.directory)
+  })
+  const controller = createSessionController(fake.api, clients().create)
+  t.after(controller.dispose)
+  await controller.activate("one", { directory: "/repo" })
+  assert.equal(controller.target(), undefined)
+  await controller.retry()
+  assert.equal(controller.target()?.sessionID, "one")
+  assert.equal(attempts, 2)
+})
+
+it("never retries a departed session or restarts a disposed controller", async () => {
+  const fake = fakeApi(async () => {
+    throw new Error("offline")
+  })
+  const controller = createSessionController(fake.api, clients().create)
+  await controller.activate("one", { directory: "/old" })
+  await controller.activate(undefined)
+  await controller.retry()
+  assert.equal(fake.requests.length, 1)
+  await controller.activate("two", { directory: "/new" })
+  controller.dispose()
+  await controller.retry()
+  assert.equal(fake.requests.length, 2)
+})

@@ -688,3 +688,26 @@ describe("showBead", () => {
     assert.equal(finished, true)
   })
 })
+
+it("refresh retries location resolution when no active target exists", async () => {
+  const fake = createFakeApi()
+  const pending = deferred<void>()
+  let attempts = 0
+  registerCommands(
+    fake.api,
+    () => undefined,
+    async () => {
+      attempts++
+      await pending.promise
+    },
+  )
+  let completed = false
+  const run = Promise.resolve(fake.command("beads.refresh").run()).then(() => {
+    completed = true
+  })
+  assert.equal(attempts, 1)
+  assert.equal(completed, false)
+  pending.resolve()
+  await run
+  assert.equal(completed, true)
+})

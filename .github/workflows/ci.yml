@@ -9,6 +9,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Keep real-bd integration runs local and telemetry-free.
+  BD_DISABLE_METRICS: "1"
+  DO_NOT_TRACK: "1"
+  BD_DISABLE_EVENT_FLUSH: "1"
+  DOLT_DISABLE_EVENT_FLUSH: "1"
+  OTEL_SDK_DISABLED: "true"
+
 jobs:
   check:
     name: Lint, typecheck, unit tests

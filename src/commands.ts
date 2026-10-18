@@ -17,7 +17,11 @@ const COMMANDS = [
  * Each invocation captures its session's client and store before awaiting a
  * picker, so changing sessions cannot redirect an in-flight action.
  */
-export function registerCommands(api: Plugin.Context, target: () => { bd: BdClient; store: Store } | undefined): void {
+export function registerCommands(
+  api: Plugin.Context,
+  target: () => { bd: BdClient; store: Store } | undefined,
+  retryLocation?: () => Promise<void>,
+): void {
   /** Run a bd write, then re-read so the panel can't linger on stale state. */
   async function apply(bd: BdClient, store: Store, id: string, args: string[], describe: string) {
     const result = await bd.mutate(id, args)
@@ -163,8 +167,8 @@ export function registerCommands(api: Plugin.Context, target: () => { bd: BdClie
         slash: { name: "bd-refresh" },
         async run() {
           const current = target()
-          if (!current) return
-          await current.store.refresh(true)
+          if (current) await current.store.refresh(true)
+          else await retryLocation?.()
         },
       },
     ],

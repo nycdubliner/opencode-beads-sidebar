@@ -50,7 +50,7 @@ Open a session in a repo with a `.beads` directory. The active session's actual
 worktree root is resolved through the V2 client, including sessions launched
 from subdirectories and linked Git worktrees. While a session is loading or
 a location lookup fails, the panel and its actions stay inactive rather than
-operating on another workspace.
+operating on another workspace. Run `/bd-refresh` to retry a failed lookup.
 
 `bd` runs on the machine running the TUI. Use this plugin only when the
 server's project paths refer to that same filesystem; remote-server paths
@@ -125,8 +125,9 @@ reversible with `bd`.
 `bd` is invoked directly rather than through a shell, so bead titles and ids are
 passed as arguments and never interpreted as shell commands; ids sourced from
 `.beads/last-touched` or bd's own JSON are additionally validated before use, so
-a crafted id can't be smuggled in as a flag. Nothing is sent anywhere: no
-network calls, no telemetry.
+a crafted id can't be smuggled in as a flag. The plugin makes no network calls or telemetry requests. `bd` can have its own
+usage metrics; set `BD_DISABLE_METRICS=1` to disable those for the TUI and its
+subprocesses. CI uses that opt-out for real-bd integration tests.
 
 One caveat worth knowing: if the agent is also editing beads while you act on
 one, `bd` is last-write-wins. The panel re-reads after every write so it won't
