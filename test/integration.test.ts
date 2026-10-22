@@ -8,6 +8,14 @@ import { promisify } from "node:util"
 import { type BdClient, type Bead, createBdClient } from "../src/bd.ts"
 import { stateOf } from "../src/scope.ts"
 
+// Tests exercise real commands in throwaway repositories, never usage reporting.
+// bd honors this documented opt-out before constructing or sending metrics.
+process.env.BD_DISABLE_METRICS = "1"
+process.env.DO_NOT_TRACK = "1"
+process.env.BD_DISABLE_EVENT_FLUSH = "1"
+process.env.DOLT_DISABLE_EVENT_FLUSH = "1"
+process.env.OTEL_SDK_DISABLED = "true"
+
 const execFile = promisify(execFileCb)
 
 /** One bd call costs ~0.5s; init spins up an embedded Dolt engine and costs a few. */

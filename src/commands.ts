@@ -1,7 +1,7 @@
-import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
+import type { Plugin } from "@opencode/plugin/tui"
 import type { BdClient } from "./bd"
 import type { PanelItem } from "./scope"
-import type { Store } from "./tui"
+import type { Store } from "./store"
 
 const COMMANDS = [
   "beads.focus",
@@ -13,133 +13,138 @@ const COMMANDS = [
 ] as const
 
 /**
- * Registers the palette commands.
- *
- * Actions go through a picker rather than a selection cursor because no sidebar
- * section in opencode takes keyboard focus — the built-in Todo and Modified
- * Files panels are purely presentational. A DialogSelect sidesteps focus
- * entirely and is the idiom the host's own commands use.
+ * Registers the palette and slash commands in a host-owned global keymap layer.
+ * Each invocation captures its session's client and store before awaiting a
+ * picker, so changing sessions cannot redirect an in-flight action.
  */
-export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store): () => void {
+export function registerCommands(
+  api: Plugin.Context,
+  target: () => { bd: BdClient; store: Store } | undefined,
+  retryLocation?: () => Promise<void>,
+): void {
   /** Run a bd write, then re-read so the panel can't linger on stale state. */
-  async function apply(id: string, args: string[], describe: string) {
+  async function apply(bd: BdClient, store: Store, id: string, args: string[], describe: string) {
     const result = await bd.mutate(id, args)
     if (!result.ok) {
-      api.ui.toast({ variant: "error", title: "beads", message: result.message })
+      api.ui.toast.show({ variant: "error", title: "beads", message: result.message })
     } else {
-      api.ui.toast({ variant: "success", title: "beads", message: describe })
+      api.ui.toast.show({ variant: "success", title: "beads", message: describe })
     }
     await store.refresh(true)
   }
 
-  function pick(title: string, items: PanelItem[], onSelect: (item: PanelItem) => void) {
+  async function pick(title: string, items: PanelItem[]): Promise<PanelItem | undefined> {
     if (items.length === 0) {
-      api.ui.toast({ variant: "info", title: "beads", message: "nothing to pick" })
+      api.ui.toast.show({ variant: "info", title: "beads", message: "nothing to pick" })
       return
     }
 
-    api.ui.dialog.replace(() =>
-      api.ui.DialogSelect({
-        title,
-        options: items.map((item) => ({
-          title: item.bead.title ?? item.bead.id,
-          description: `${item.bead.id} · ${item.state}`,
-          value: item,
-        })),
-        onSelect: (option) => {
-          api.ui.dialog.clear()
-          onSelect(option.value as PanelItem)
-        },
-      }),
-    )
+    return api.ui.dialog.select({
+      title,
+      options: items.map((item) => ({
+        title: item.bead.title ?? item.bead.id,
+        description: `${item.bead.id} · ${item.state}`,
+        value: item,
+      })),
+    })
   }
 
-  function pickFrom(title: string, filter: (item: PanelItem) => boolean, run: (item: PanelItem) => void) {
-    const items = (store.data()?.items ?? []).filter(filter)
-    pick(title, items, run)
-  }
-
-  const layer = api.keymap.registerLayer({
+  api.keymap.layer(() => ({
+    mode: "global",
     commands: [
       {
-        name: "beads.focus",
+        id: "beads.focus",
         title: "Beads: focus an epic",
-        desc: "Pin the sidebar to a specific epic for this session",
-        category: "Beads",
-        namespace: "palette",
-        slashName: "bd-focus",
+        description: "Pin the sidebar to a specific epic for this session",
+        group: "Beads",
+        palette: true,
+        slash: { name: "bd-focus" },
         async run() {
+          const current = target()
+          if (!current) return
+          const { bd, store } = current
           const epics = (await bd.epics()) ?? []
           if (epics.length === 0) {
-            api.ui.toast({ variant: "info", title: "beads", message: "no epics in this workspace" })
+            api.ui.toast.show({ variant: "info", title: "beads", message: "no epics in this workspace" })
             return
           }
-          api.ui.dialog.replace(() =>
-            api.ui.DialogSelect({
-              title: "Focus epic",
-              options: epics.map((epic) => ({
-                title: epic.title ?? epic.id,
-                description: `${epic.id} · ${epic.status ?? "open"}`,
-                value: epic.id,
-              })),
-              onSelect: (option) => {
-                api.ui.dialog.clear()
-                store.pin(String(option.value))
-              },
-            }),
-          )
+          const id = await api.ui.dialog.select({
+            title: "Focus epic",
+            options: epics.map((epic) => ({
+              title: epic.title ?? epic.id,
+              description: `${epic.id} · ${epic.status ?? "open"}`,
+              value: epic.id,
+            })),
+          })
+          if (id !== undefined) await store.pin(id)
         },
       },
       {
-        name: "beads.unfocus",
+        id: "beads.unfocus",
         title: "Beads: clear focus",
-        desc: "Go back to following whichever bead was last touched",
-        category: "Beads",
-        namespace: "palette",
-        slashName: "bd-unfocus",
-        run() {
-          store.pin(undefined)
-        },
-      },
-      {
-        name: "beads.start",
-        title: "Beads: start work",
-        desc: "Mark a bead in progress",
-        category: "Beads",
-        namespace: "palette",
-        slashName: "bd-start",
-        run() {
-          pickFrom(
-            "Start work",
-            (item) => item.state !== "closed" && item.state !== "in_progress",
-            (item) =>
-              void apply(item.bead.id, ["update", item.bead.id, "--status", "in_progress"], `started ${item.bead.id}`),
-          )
-        },
-      },
-      {
-        name: "beads.close",
-        title: "Beads: close",
-        desc: "Close a bead in the current plan",
-        category: "Beads",
-        namespace: "palette",
-        slashName: "bd-close",
-        run() {
-          pickFrom(
-            "Close bead",
-            (item) => item.state !== "closed",
-            (item) => void apply(item.bead.id, ["close", item.bead.id], `closed ${item.bead.id}`),
-          )
-        },
-      },
-      {
-        name: "beads.reopen",
-        title: "Beads: reopen",
-        desc: "Reopen a closed bead",
-        category: "Beads",
-        namespace: "palette",
-        slashName: "bd-reopen",
+        description: "Go back to following whichever bead was last touched",
+        group: "Beads",
+        palette: true,
+        slash: { name: "bd-unfocus" },
         async run() {
+          const current = target()
+          if (!current) return
+          await current.store.pin(undefined)
+        },
+      },
+      {
+        id: "beads.start",
+        title: "Beads: start work",
+        description: "Mark a bead in progress",
+        group: "Beads",
+        palette: true,
+        slash: { name: "bd-start" },
+        async run() {
+          const current = target()
+          if (!current) return
+          const { bd, store } = current
+          const items = (store.data()?.items ?? []).filter(
+            (item) => item.state !== "closed" && item.state !== "in_progress",
+          )
+          const item = await pick("Start work", items)
+          if (item) {
+            await apply(
+              bd,
+              store,
+              item.bead.id,
+              ["update", item.bead.id, "--status", "in_progress"],
+              `started ${item.bead.id}`,
+            )
+          }
+        },
+      },
+      {
+        id: "beads.close",
+        title: "Beads: close",
+        description: "Close a bead in the current plan",
+        group: "Beads",
+        palette: true,
+        slash: { name: "bd-close" },
+        async run() {
+          const current = target()
+          if (!current) return
+          const { bd, store } = current
+          const items = (store.data()?.items ?? []).filter((item) => item.state !== "closed")
+          const item = await pick("Close bead", items)
+          if (item) await apply(bd, store, item.bead.id, ["close", item.bead.id], `closed ${item.bead.id}`)
+        },
+      },
+      {
+        id: "beads.reopen",
+        title: "Beads: reopen",
+        description: "Reopen a closed bead",
+        group: "Beads",
+        palette: true,
+        slash: { name: "bd-reopen" },
+        async run() {
+          const current = target()
+          if (!current) return
+          const { bd, store } = current
           // Workspace fallback's items come from an unfiltered `bd list`, which
           // only returns open issues — so there is usually nothing closed to
           // pick from without asking bd directly. Epic scope already includes
@@ -149,36 +154,33 @@ export function registerCommands(api: TuiPluginApi, bd: BdClient, store: Store):
             closed.length > 0
               ? closed
               : ((await bd.list(["--status", "closed"])) ?? []).map((bead) => ({ bead, state: "closed" as const }))
-          pick(
-            "Reopen bead",
-            items,
-            (item) => void apply(item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`),
-          )
+          const item = await pick("Reopen bead", items)
+          if (item) await apply(bd, store, item.bead.id, ["reopen", item.bead.id], `reopened ${item.bead.id}`)
         },
       },
       {
-        name: "beads.refresh",
+        id: "beads.refresh",
         title: "Beads: refresh",
-        desc: "Re-read beads now",
-        category: "Beads",
-        namespace: "palette",
-        slashName: "bd-refresh",
-        run() {
-          void store.refresh(true)
+        description: "Re-read beads now",
+        group: "Beads",
+        palette: true,
+        slash: { name: "bd-refresh" },
+        async run() {
+          const current = target()
+          if (current) await current.store.refresh(true)
+          else await retryLocation?.()
         },
       },
     ],
-    bindings: api.tuiConfig.keybinds.gather("beads", [...COMMANDS]),
-  })
-
-  return typeof layer === "function" ? layer : () => {}
+    bindings: COMMANDS,
+  }))
 }
 
 /**
  * Detail view for a bead, shown when a panel row is clicked. Read-only: the
  * mutations all live behind the palette commands above.
  */
-export async function showBead(api: TuiPluginApi, bd: BdClient, item: PanelItem) {
+export async function showBead(api: Plugin.Context, bd: BdClient, item: PanelItem) {
   const bead = (await bd.get(item.bead.id))?.[0] ?? item.bead
   const lines = [
     `${bead.id}  ${bead.status ?? "open"}${bead.issue_type ? ` · ${bead.issue_type}` : ""}`,
@@ -191,10 +193,8 @@ export async function showBead(api: TuiPluginApi, bd: BdClient, item: PanelItem)
     lines.push("", "Acceptance:", bead.acceptance_criteria)
   }
 
-  api.ui.dialog.replace(() =>
-    api.ui.DialogAlert({
-      title: bead.title ?? bead.id,
-      message: lines.join("\n"),
-    }),
-  )
+  await api.ui.dialog.alert({
+    title: bead.title ?? bead.id,
+    message: lines.join("\n"),
+  })
 }
