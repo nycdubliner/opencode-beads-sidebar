@@ -150,9 +150,7 @@ export default Plugin.define({
       // Durable state is reactive and synced across TUI instances. Re-read when
       // another instance changes this session's focus, without tracking data().
       createEffect(() => {
-        const target = sessions.target()
-        target?.store.pinned()
-        if (target) void target.store.refresh(true)
+        void sessions.target()?.store.refreshFocus()
       })
 
       const removeSlot = api.ui.slot({

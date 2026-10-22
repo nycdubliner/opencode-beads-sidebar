@@ -48,10 +48,23 @@ export function createStore(bd: BdClient, focus: Focus) {
   }
 
   const pinned = () => focus.get()
+  let observedFocus = pinned()
+  let focusRefresh: Promise<void> | undefined
+
+  // Both the reactive observer and a completed local write can see the same
+  // change. Claim it before refreshing and share the work both callers await.
+  function refreshFocus() {
+    const next = pinned()
+    if (next !== observedFocus) {
+      observedFocus = next
+      focusRefresh = refresh(true)
+    }
+    return focusRefresh
+  }
 
   async function pin(epicID: string | undefined) {
     await focus.set(epicID)
-    await refresh(true)
+    await refreshFocus()
   }
 
   async function refresh(force = false) {
@@ -104,5 +117,5 @@ export function createStore(bd: BdClient, focus: Focus) {
     }
   }
 
-  return { data, refresh, start, pin, pinned, adopt }
+  return { data, refresh, refreshFocus, start, pin, pinned, adopt }
 }
